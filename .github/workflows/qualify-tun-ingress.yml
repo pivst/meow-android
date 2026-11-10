@@ -1,0 +1,35 @@
+name: Qualify TUN ingress
+on:
+  push:
+    branches: [codex/qualify-tun-ingress-20261110]
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 20e301e195ff5be39580bfd3aa83ec7fbd2bf5ae
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/src/main/rust/meow-android-ffi/target
+          key: tun-ingress-linux-${{ runner.os }}-${{ hashFiles('core/src/main/rust/**/Cargo.lock') }}
+      - name: Verify source
+        run: test "$(git rev-parse HEAD)" = 20e301e195ff5be39580bfd3aa83ec7fbd2bf5ae
+      - name: Format
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo fmt --all --check
+      - name: Clippy
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Full FFI tests
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo test --lib --locked
