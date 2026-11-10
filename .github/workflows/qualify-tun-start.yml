@@ -1,0 +1,35 @@
+name: Qualify TUN startup
+on:
+  push:
+    branches: [codex/qualify-tun-start-20261110]
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 93a5e2b059e2feaf4486c426038d24dc88e3a4b3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/src/main/rust/meow-android-ffi/target
+          key: tun-start-linux-${{ runner.os }}-${{ hashFiles('core/src/main/rust/**/Cargo.lock') }}
+      - name: Verify source
+        run: test "$(git rev-parse HEAD)" = 93a5e2b059e2feaf4486c426038d24dc88e3a4b3
+      - name: Format
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo fmt --all --check
+      - name: Clippy
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Full FFI tests
+        working-directory: core/src/main/rust/meow-android-ffi
+        run: cargo test --lib --locked
