@@ -179,6 +179,9 @@ object BaseService {
             else -> MeowCore.nativeGetLastError()
         }
 
+        override fun refreshWifiModes(): String = data?.meowInstance?.refreshWifiModes() ?: "{}"
+        override fun getWifiModeStatus(): String = data?.meowInstance?.wifiModeStatus() ?: "{}"
+
         // On the binder thread: two counter reads, nothing that blocks.
         override fun getSessionStats(): SessionStats? = data?.meowInstance?.sessionStats()
 

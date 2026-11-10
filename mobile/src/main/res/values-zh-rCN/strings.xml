@@ -349,4 +349,32 @@
     <plurals name="perapp_selected">
         <item quantity="other">已选 %1$d 个</item>
     </plurals>
+    <string name="wifi_modes_title">Wi-Fi 自动模式</string>
+    <string name="wifi_modes_summary">根据 Wi-Fi 名称切换规则、全局或直连模式</string>
+    <string name="wifi_modes_description">匹配 Wi-Fi 时自动使用指定模式，VPN 保持连接。其他网络使用首页保存的模式或配置默认模式。在此编辑 Wi-Fi 规则；如需修改默认模式，请先关闭自动切换，再到首页选择。</string>
+    <string name="wifi_modes_enable">按 Wi-Fi 自动切换</string>
+    <string name="wifi_mode_active">Wi-Fi 自动切换已生效：%1$s → %2$s</string>
+    <string name="wifi_mode_unavailable">无法识别 Wi-Fi · 使用默认模式 · 检查权限</string>
+    <string name="wifi_mode_default">未匹配 Wi-Fi 规则 · 使用默认模式</string>
+    <string name="wifi_mode_apply_failed">Wi-Fi 模式切换失败 · 检查设置</string>
+    <string name="wifi_permission_help">后台识别 Wi-Fi 需要在应用设置中允许始终访问精确位置，并开启系统定位。无法访问时使用默认模式。</string>
+    <string name="wifi_permissions">Wi-Fi 识别权限</string>
+    <string name="wifi_app_settings">打开应用权限设置</string>
+    <string name="wifi_location_settings">打开系统定位设置</string>
+    <string name="wifi_permission_disclosure">meow 使用定位权限读取当前连接的 Wi-Fi 名称，包括 VPN 在后台运行时。名称仅在本机匹配和展示，不写入日志或发送至统计服务；不收集位置坐标，也不扫描周围网络。接下来请允许精确位置，再在应用设置中选择“始终允许”。</string>
+    <string name="wifi_save_failed">无法保存 Wi-Fi 模式，请重试。</string>
+    <string name="wifi_add">添加 Wi-Fi 规则</string>
+    <string name="wifi_edit">编辑</string>
+    <string name="wifi_remove">移除</string>
+    <string name="wifi_name">Wi-Fi 名称（SSID）</string>
+    <string name="wifi_name_help">精确匹配并区分大小写，最长 32 个 UTF-8 字节。名称不能重复，空格也参与匹配。</string>
+    <string name="wifi_save">保存</string>
+    <string name="wifi_cancel">取消</string>
+    <string name="wifi_continue">继续</string>
+    <string name="wifi_back">返回</string>
+    <string name="wifi_mode_changing">正在根据 Wi-Fi 切换模式…</string>
+    <string name="wifi_automatic">自动</string>
+    <string name="wifi_matched">已匹配 Wi-Fi 规则</string>
+    <string name="wifi_manage">管理</string>
+    <string name="wifi_restore">离开此 Wi-Fi 后恢复%1$s模式。</string>
 </resources>

@@ -91,6 +91,10 @@ class VpnStateRepository(
     /** See [MeowConnection.setBuiltinDns]; blocks, so not on Main. */
     fun applyBuiltinDns(enabled: Boolean): String? = connection.setBuiltinDns(enabled)
 
+    fun wifiModeStatus(refresh: Boolean = false): io.github.madeye.meow.preference.WifiModeStatus = try {
+        kotlinx.serialization.json.Json.decodeFromString(connection.wifiModeStatus(refresh))
+    } catch (_: Exception) { io.github.madeye.meow.preference.WifiModeStatus() }
+
     /** See [MeowConnection.sessionStats]; a binder call, so not on Main. */
     fun sessionStats(): SessionStats? = connection.sessionStats()
 }

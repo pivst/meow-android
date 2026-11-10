@@ -354,4 +354,32 @@
     <plurals name="perapp_selected">
         <item quantity="other">%1$d ခု ရွေးထားသည်</item>
     </plurals>
+    <string name="wifi_modes_title">Wi-Fi modes</string>
+    <string name="wifi_modes_summary">Switch Rule, Global or Direct by Wi-Fi name</string>
+    <string name="wifi_modes_description">A matching Wi-Fi overrides the normal mode while the VPN stays connected. Other networks use your saved Home mode or profile default. Edit a Wi-Fi rule here; disable automation to change the default on Home.</string>
+    <string name="wifi_modes_enable">Automatic Wi-Fi modes</string>
+    <string name="wifi_mode_active">Wi-Fi automation active: %1$s → %2$s</string>
+    <string name="wifi_mode_unavailable">Wi-Fi name unavailable · using default · check permissions</string>
+    <string name="wifi_mode_default">No Wi-Fi rule matched · using default mode</string>
+    <string name="wifi_mode_apply_failed">Wi-Fi mode change failed · check settings</string>
+    <string name="wifi_permission_help">To recognize Wi-Fi in the background, allow precise location all the time in app settings and turn on system Location. Without access, the default mode is used.</string>
+    <string name="wifi_permissions">Wi-Fi access</string>
+    <string name="wifi_app_settings">Open app permissions</string>
+    <string name="wifi_location_settings">Open Location settings</string>
+    <string name="wifi_permission_disclosure">meow uses location access to read the connected Wi-Fi name, including while the VPN runs in the background. Names are matched and displayed only on this device, never logged or sent to analytics. No location coordinates or nearby network scans are collected. Next, allow precise location, then select Allow all the time in app settings.</string>
+    <string name="wifi_save_failed">Could not save Wi-Fi modes. Try again.</string>
+    <string name="wifi_add">Add Wi-Fi rule</string>
+    <string name="wifi_edit">Edit</string>
+    <string name="wifi_remove">Remove</string>
+    <string name="wifi_name">Wi-Fi name (SSID)</string>
+    <string name="wifi_name_help">Exact, case-sensitive name, up to 32 UTF-8 bytes. Names must be unique; spaces are significant.</string>
+    <string name="wifi_save">Save</string>
+    <string name="wifi_cancel">Cancel</string>
+    <string name="wifi_continue">Continue</string>
+    <string name="wifi_back">Back</string>
+    <string name="wifi_mode_changing">Applying Wi-Fi mode…</string>
+    <string name="wifi_automatic">Auto</string>
+    <string name="wifi_matched">Matched Wi-Fi rule</string>
+    <string name="wifi_manage">Manage</string>
+    <string name="wifi_restore">Restore %1$s mode when leaving this Wi-Fi.</string>
 </resources>

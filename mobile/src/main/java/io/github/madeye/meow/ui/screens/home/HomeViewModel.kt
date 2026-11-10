@@ -37,6 +37,7 @@ data class HomeUiState(
     val profileLoaded: Boolean = false,
     val traffic: TrafficStats = TrafficStats(),
     val routeMode: RouteMode = RouteMode.Rule,
+    val wifiMode: io.github.madeye.meow.preference.WifiModeStatus = io.github.madeye.meow.preference.WifiModeStatus(),
 ) {
     val isConnected: Boolean get() = state == BaseService.State.Connected
 
@@ -60,6 +61,7 @@ class HomeViewModel(
     /** What the running engine reports; `null` while disconnected. */
     private val engineMode = MutableStateFlow<RouteMode?>(null)
     private val modeSwitch = Mutex()
+    private val wifiMode = MutableStateFlow(io.github.madeye.meow.preference.WifiModeStatus())
 
     /** The engine is the truth while it runs; otherwise, what the next start will use. */
     private val routeMode: Flow<RouteMode> = combine(
@@ -77,7 +79,8 @@ class HomeViewModel(
         vpn.traffic,
         profiles.observeSelected(),
         routeMode,
-    ) { state, traffic, profile, mode ->
+        wifiMode,
+    ) { state, traffic, profile, mode, wifi ->
         HomeUiState(
             state = state,
             profileName = profile?.name.orEmpty(),
@@ -85,10 +88,16 @@ class HomeViewModel(
             profileLoaded = true,
             traffic = traffic,
             routeMode = mode,
+            wifiMode = wifi,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     init {
+        viewModelScope.launch {
+            vpn.traffic.collect {
+                if (vpn.state.value == BaseService.State.Connected) loadWifiMode()
+            }
+        }
         viewModelScope.launch {
             savedMode.value = withContext(Dispatchers.IO) { routeModes.load() }
         }
@@ -100,6 +109,7 @@ class HomeViewModel(
                     loadRouteMode()
                 } else {
                     engineMode.value = null
+                    wifiMode.value = io.github.madeye.meow.preference.WifiModeStatus()
                 }
             }
         }
@@ -134,7 +144,27 @@ class HomeViewModel(
         }
     }
 
+    private suspend fun loadWifiMode() {
+        val previous = wifiMode.value.state
+        wifiMode.value = withContext(Dispatchers.IO) { vpn.wifiModeStatus() }
+        if (wifiMode.value.state != "off" || previous != "off") {
+            wifiMode.value.mode?.let { RouteMode.fromWire(it) }?.let { engineMode.value = it }
+        }
+    }
+
     private suspend fun switchRouteMode(mode: RouteMode) {
+        if (withContext(Dispatchers.IO) { io.github.madeye.meow.preference.WifiModeStore.default.load().enabled }) {
+            try {
+                withContext(Dispatchers.IO) {
+                    routeModes.save(mode)
+                    vpn.wifiModeStatus(refresh = true)
+                }
+                savedMode.value = mode
+                loadRouteMode()
+                routeChanges.notifyChanged()
+            } catch (e: IOException) { Timber.w(e, "saving route mode failed") }
+            return
+        }
         val connected = vpn.state.value == BaseService.State.Connected
         if (connected) {
             val previous = engineMode.value
@@ -166,6 +196,7 @@ class HomeViewModel(
     }
 
     private suspend fun loadRouteMode() {
+        loadWifiMode()
         try {
             api.configs().routeMode?.let { engineMode.value = it }
         } catch (e: MeowApiException) {

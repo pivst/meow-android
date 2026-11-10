@@ -23,38 +23,63 @@ import timber.log.Timber
  */
 internal class DefaultNetwork(
     context: Context,
+    private var includeLocation: Boolean = false,
+    private val onCapabilities: (NetworkCapabilities?) -> Unit = {},
     private val onNetwork: (Network?, NetworkCapabilities?) -> Unit,
 ) {
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
 
-    private val callback = object : ConnectivityManager.NetworkCallback() {
-        // Callbacks come one at a time, on the main looper (or, below API 26,
-        // the system's connectivity thread).
-        private var current: Network? = null
+    private var callback: ConnectivityManager.NetworkCallback? = null
+    @Volatile private var generation = 0
+    private var selected: Network? = null
+    private var current: Network? = null
 
-        // Below API 26 a network's capabilities need not follow its
-        // onAvailable, so it is read there.
-        override fun onAvailable(network: Network) {
-            if (Build.VERSION.SDK_INT < 26) changed(network, connectivity.getNetworkCapabilities(network))
+    @Synchronized private fun available(epoch: Int, network: Network) {
+        if (epoch != generation) return
+        selected = network
+        onCapabilities(null)
+        if (Build.VERSION.SDK_INT < 26) changed(epoch, network, connectivity.getNetworkCapabilities(network))
+    }
+    @Synchronized private fun changed(epoch: Int, network: Network, capabilities: NetworkCapabilities?) {
+        if (epoch != generation || selected != network) return
+        onCapabilities(capabilities)
+        if (network == current) return
+        current = network
+        onNetwork(network, capabilities)
+    }
+    @Synchronized private fun lost(epoch: Int, network: Network) {
+        if (epoch != generation) return
+        if (selected == network) {
+            selected = null
+            onCapabilities(null)
         }
+        if (network != current) return
+        current = null
+        onCapabilities(null)
+        onNetwork(null, null)
+    }
+    private fun newCallback(epoch: Int): ConnectivityManager.NetworkCallback =
+        if (Build.VERSION.SDK_INT >= 31) locationCallback(epoch) else
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = available(epoch, network)
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = changed(epoch, network, caps)
+                override fun onLost(network: Network) = lost(epoch, network)
+            }
 
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            changed(network, capabilities)
-        }
+    @TargetApi(31)
+    private fun locationCallback(epoch: Int) = object : ConnectivityManager.NetworkCallback(
+        if (includeLocation) FLAG_INCLUDE_LOCATION_INFO else 0,
+    ) {
+        override fun onAvailable(network: Network) = available(epoch, network)
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = changed(epoch, network, caps)
+        override fun onLost(network: Network) = lost(epoch, network)
+    }
 
-        private fun changed(network: Network, capabilities: NetworkCapabilities?) {
-            if (network == current) return
-            current = network
-            onNetwork(network, capabilities)
-        }
-
-        override fun onLost(network: Network) {
-            // The network handed over from can be reported lost after the
-            // one that took over: that one still carries the traffic.
-            if (network != current) return
-            current = null
-            onNetwork(null, null)
-        }
+    @Synchronized fun locationInfo(enabled: Boolean, refresh: Boolean = false) {
+        if (includeLocation == enabled && !refresh) return
+        stop()
+        includeLocation = enabled
+        start()
     }
 
     // INTERNET and NOT_RESTRICTED on top of the builder's NOT_VPN.
@@ -63,11 +88,12 @@ internal class DefaultNetwork(
         .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
         .build()
 
-    fun start() {
+    @Synchronized fun start() {
         val handler = Handler(Looper.getMainLooper())
+        val callback = newCallback(++generation).also { this.callback = it }
         try {
             when {
-                Build.VERSION.SDK_INT >= 31 -> registerBestMatching(handler)
+                Build.VERSION.SDK_INT >= 31 -> registerBestMatching(callback, handler)
                 // A request, not a listen: it follows the network that wins.
                 Build.VERSION.SDK_INT >= 28 -> connectivity.requestNetwork(request, callback, handler)
                 Build.VERSION.SDK_INT >= 26 -> connectivity.registerDefaultNetworkCallback(callback, handler)
@@ -81,10 +107,15 @@ internal class DefaultNetwork(
     }
 
     @TargetApi(31)
-    private fun registerBestMatching(handler: Handler) =
+    private fun registerBestMatching(callback: ConnectivityManager.NetworkCallback, handler: Handler) =
         connectivity.registerBestMatchingNetworkCallback(request, callback, handler)
 
-    fun stop() {
+    @Synchronized fun stop() {
+        ++generation
+        val callback = callback ?: return
+        this.callback = null
+        current = null
+        selected = null
         try {
             connectivity.unregisterNetworkCallback(callback)
         } catch (e: IllegalArgumentException) {

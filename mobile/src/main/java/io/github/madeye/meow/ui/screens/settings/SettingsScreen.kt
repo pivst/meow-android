@@ -67,6 +67,7 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onCheckForUpdates: () -> Unit,
     onPrivacyPolicy: () -> Unit,
+    onWifiModes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val unavailable = stringResource(R.string.settings_version_unavailable)
@@ -124,6 +125,13 @@ fun SettingsScreen(
         Spacer(Modifier.height(8.dp))
         SectionHeader(stringResource(R.string.settings_network))
         GlassCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+            NavRow(
+                title = stringResource(R.string.wifi_modes_title),
+                icon = Icons.Filled.Public,
+                onClick = onWifiModes,
+                subtitle = stringResource(R.string.wifi_modes_summary),
+            )
+            HorizontalDivider(color = MaterialTheme.meow.border)
             NavRow(
                 title = stringResource(R.string.perapp_title),
                 icon = Icons.Filled.Apps,

@@ -23,6 +23,9 @@ interface IMeowService {
     // then or when no VPN runs, else why the engine kept the DNS it had.
     String setBuiltinDns(boolean enabled);
 
+    String refreshWifiModes();
+    String getWifiModeStatus();
+
     // The running session's start time and its traffic per kind of network;
     // null while no engine is up.
     SessionStats getSessionStats();

@@ -48,6 +48,8 @@ sealed interface Dest {
         val opened: String? = null,
     ) : Dest
 
+    @Serializable data object WifiModes : Dest
+
     @Serializable data object PerAppProxy : Dest
 
     @Serializable data class YamlEditor(val profileId: Long) : Dest

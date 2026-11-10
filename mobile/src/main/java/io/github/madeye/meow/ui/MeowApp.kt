@@ -218,6 +218,7 @@ private fun MeowNavHost(
                     navController.navigate(Dest.Subscriptions) { launchSingleTop = true }
                 },
                 onRules = { navController.navigate(Dest.Rules()) },
+                onWifiModes = { navController.navigate(Dest.WifiModes) },
                 bottomBar = { BottomBar(navController, onTab) },
             )
         }
@@ -242,6 +243,7 @@ private fun MeowNavHost(
             SettingsRoute(
                 snackbarHost = snackbarHost,
                 onPerAppProxy = { navController.navigate(Dest.PerAppProxy) },
+                onWifiModes = { navController.navigate(Dest.WifiModes) },
                 bottomBar = { BottomBar(navController, onTab) },
             )
         }
@@ -259,6 +261,9 @@ private fun MeowNavHost(
                 onEditYaml = { navController.navigate(Dest.YamlEditor(it)) },
                 onBack = navController::popBackStack,
             )
+        }
+        composable<Dest.WifiModes> {
+            io.github.madeye.meow.ui.screens.settings.WifiModesScreen(onBack = navController::popBackStack)
         }
         composable<Dest.PerAppProxy> {
             PerAppProxyRoute(snackbarHost = snackbarHost, onBack = navController::popBackStack)
@@ -375,6 +380,7 @@ private fun HomeRoute(
     autoConnect: Boolean,
     onOpenSubscriptions: () -> Unit,
     onRules: () -> Unit,
+    onWifiModes: () -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val viewModel: HomeViewModel = viewModel(factory = AppGraph.viewModelFactory)
@@ -444,6 +450,7 @@ private fun HomeRoute(
                 if (checked) connect() else viewModel.onDisconnect(context)
             },
             onSelectRouteMode = viewModel::onSelectRouteMode,
+            onWifiModes = onWifiModes,
             exitIp = exitIpState,
             exitNat = exitNatState,
             onRefreshExitIp = exitIp::refresh,
@@ -805,6 +812,7 @@ private fun narrowed(
 private fun SettingsRoute(
     snackbarHost: SnackbarHostState,
     onPerAppProxy: () -> Unit,
+    onWifiModes: () -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val viewModel: SettingsViewModel = viewModel(factory = AppGraph.viewModelFactory)
@@ -833,6 +841,7 @@ private fun SettingsRoute(
             state = state,
             contentPadding = padding,
             onPerAppProxy = onPerAppProxy,
+            onWifiModes = onWifiModes,
             onShowExitIpChange = viewModel::onShowExitIpChange,
             onBuiltinDnsChange = viewModel::onBuiltinDnsChange,
             onThemeModeChange = viewModel::onThemeModeChange,

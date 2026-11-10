@@ -1,5 +1,10 @@
 package io.github.madeye.meow.ui.screens.home
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +75,7 @@ fun HomeScreen(
     contentPadding: PaddingValues,
     onToggle: (Boolean) -> Unit,
     onSelectRouteMode: (RouteMode) -> Unit,
+    onWifiModes: () -> Unit,
     exitIp: ExitIpUiState,
     exitNat: NatUiState,
     onRefreshExitIp: () -> Unit,
@@ -131,8 +137,10 @@ fun HomeScreen(
             RouteModeCard(
                 mode = state.routeMode,
                 // Usable while disconnected too: the pick applies on the next connect.
-                enabled = !state.isBusy,
+                enabled = !state.isBusy && state.wifiMode.state != "matched",
                 onSelect = onSelectRouteMode,
+                wifi = state.wifiMode,
+                onManageWifi = onWifiModes,
             )
         }
 
@@ -241,7 +249,13 @@ private fun NoProfileCard(onAdd: () -> Unit) {
 }
 
 @Composable
-private fun RouteModeCard(mode: RouteMode, enabled: Boolean, onSelect: (RouteMode) -> Unit) {
+internal fun RouteModeCard(
+    mode: RouteMode,
+    enabled: Boolean,
+    onSelect: (RouteMode) -> Unit,
+    wifi: io.github.madeye.meow.preference.WifiModeStatus = io.github.madeye.meow.preference.WifiModeStatus(),
+    onManageWifi: () -> Unit = {},
+) {
     GlassCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -255,6 +269,19 @@ private fun RouteModeCard(mode: RouteMode, enabled: Boolean, onSelect: (RouteMod
                 text = stringResource(R.string.home_route_mode),
                 style = MaterialTheme.typography.titleSmall,
             )
+            Spacer(Modifier.weight(1f))
+            if (wifi.state == "matched") {
+                androidx.compose.material3.Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = androidx.compose.ui.graphics.Color.Transparent,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.meow.connected),
+                ) {
+                    Text(stringResource(R.string.wifi_automatic),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.meow.connected)
+                }
+            }
         }
         Spacer(Modifier.height(10.dp))
         // Three segments leave ~75dp per label on a 360dp phone, so the fill
@@ -269,6 +296,13 @@ private fun RouteModeCard(mode: RouteMode, enabled: Boolean, onSelect: (RouteMod
                     selected = mode == entry,
                     onClick = { if (mode != entry) onSelect(entry) },
                     enabled = enabled,
+                    colors = if (wifi.state == "matched") SegmentedButtonDefaults.colors(
+                        disabledActiveContainerColor = MaterialTheme.meow.accent,
+                        disabledActiveContentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledInactiveContentColor = MaterialTheme.meow.mutedText,
+                        disabledActiveBorderColor = MaterialTheme.meow.accent,
+                        disabledInactiveBorderColor = MaterialTheme.meow.border,
+                    ) else SegmentedButtonDefaults.colors(),
                     shape = SegmentedButtonDefaults.itemShape(index, RouteMode.entries.size),
                     modifier = Modifier.fillMaxHeight().testTag("route_mode_${entry.wire}"),
                     icon = {},
@@ -288,6 +322,51 @@ private fun RouteModeCard(mode: RouteMode, enabled: Boolean, onSelect: (RouteMod
                         ),
                     )
                 }
+            }
+        }
+        if (wifi.state != "off") {
+            Spacer(Modifier.height(16.dp))
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.meow.border)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(onClick = onManageWifi)
+                    .heightIn(min = 56.dp)
+                    .testTag("wifi_mode_status"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Wifi, contentDescription = null,
+                    tint = if (wifi.state == "error" || wifi.state == "unavailable") MaterialTheme.meow.warning else MaterialTheme.meow.accent,
+                    modifier = Modifier.size(24.dp))
+                Spacer(Modifier.size(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (wifi.state == "matched") androidx.core.text.BidiFormatter.getInstance().unicodeWrap(wifi.ssid.orEmpty())
+                        else stringResource(R.string.wifi_modes_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Text(stringResource(when (wifi.state) {
+                        "matched" -> R.string.wifi_matched
+                        "changing" -> R.string.wifi_mode_changing
+                        "unavailable" -> R.string.wifi_mode_unavailable
+                        "error" -> R.string.wifi_mode_apply_failed
+                        else -> R.string.wifi_mode_default
+                    }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.meow.mutedText)
+                }
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(R.string.wifi_manage), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.meow.accent)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.meow.mutedText)
+            }
+            if (wifi.state == "matched") {
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.wifi_restore,
+                    stringResource(when (wifi.defaultMode) {
+                        "direct" -> R.string.route_mode_direct
+                        "global" -> R.string.route_mode_global
+                        else -> R.string.route_mode_rule
+                    })), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.meow.mutedText)
             }
         }
     }

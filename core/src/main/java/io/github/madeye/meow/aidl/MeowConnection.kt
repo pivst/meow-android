@@ -141,6 +141,10 @@ class MeowConnection(private var listenForBandwidth: Boolean = false) : ServiceC
         }
     }
 
+    fun wifiModeStatus(refresh: Boolean = false): String = try {
+        if (refresh) service?.refreshWifiModes() ?: "{}" else service?.wifiModeStatus ?: "{}"
+    } catch (_: RemoteException) { "{}" }
+
     /** The running session's stats; null when no VPN runs or `:vpn` is not bound. */
     fun sessionStats(): SessionStats? = try {
         service?.sessionStats

@@ -18,6 +18,19 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 
+import io.github.madeye.meow.api.MeowApi
+import io.github.madeye.meow.api.RouteMode
+import io.github.madeye.meow.preference.WifiModeStore
+import io.github.madeye.meow.preference.WifiModeStatus
+import android.net.NetworkCapabilities
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 class MeowInstance(val profile: ClashProfile) {
     val profileName: String get() = profile.name
 
@@ -72,6 +85,38 @@ class MeowInstance(val profile: ClashProfile) {
     // Set once the engine is up, for the Statistics screen; see sessionStats.
     @Volatile private var meter: NetworkTrafficMeter? = null
     private var networks: DefaultNetwork? = null
+    private val locationReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: android.content.Intent) {
+            wifiModes?.network(
+                wifiCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
+                if (wifiEnabled) WifiIdentity.name(context, wifiCapabilities) else null,
+            )
+            wifiChanges.trySend(Unit)
+        }
+    }
+    private var locationReceiverRegistered = false
+    private val wifiChanges = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private val wifiScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var wifiModes: WifiModeController? = null
+    private var context: Context? = null
+    @Volatile private var wifiEnabled = false
+    @Volatile private var wifiCapabilities: NetworkCapabilities? = null
+
+    fun wifiModeStatus(): String = Json.encodeToString(wifiModes?.status ?: WifiModeStatus())
+
+    /** Binder entry; serialized with network-triggered changes by the controller. */
+    fun refreshWifiModes(): String = runBlocking {
+        val ctx = context ?: return@runBlocking wifiModeStatus()
+        val enabled = withContext(Dispatchers.IO) { WifiModeStore.default.load().enabled }
+        wifiEnabled = enabled
+        withContext(Dispatchers.Main) { networks?.locationInfo(enabled, refresh = enabled) }
+        wifiModes?.network(
+            wifiCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
+            if (enabled) WifiIdentity.name(ctx, wifiCapabilities) else null,
+        )
+        withContext(Dispatchers.IO) { wifiModes?.refresh() }
+        wifiModeStatus()
+    }
 
     // JNI startup blocks while loading remote proxy/rule providers. Keep it
     // off the service's main thread so lifecycle callbacks remain responsive.
@@ -115,9 +160,34 @@ class MeowInstance(val profile: ClashProfile) {
         if (flipped != builtinDns && MeowCore.nativeSetBuiltinDns(flipped) != 0) {
             Timber.w("MeowInstance: built-in DNS switch: ${MeowCore.nativeGetLastError()}")
         }
+        this@MeowInstance.context = context.applicationContext
+        // Freeze the token for this session: queued work cannot authenticate to a later engine.
+        val sessionToken = MeowCore.nativeApiSecret().orEmpty()
+        val modeApi = MeowApi(secret = { sessionToken })
+        wifiModes = WifiModeController(
+            config = { WifiModeStore.default.load() },
+            fallback = { RouteModeStore.default.load() ?: RouteMode.configured(profile.yamlContent) },
+            apply = { mode ->
+                modeApi.setMode(mode)
+                modeApi.closeAllConnections()
+            },
+        )
+        wifiScope.launch { for (ignored in wifiChanges) wifiModes?.refresh() }
         val meter = NetworkTrafficMeter(startedAt = System.currentTimeMillis())
         var outbound: Network? = null
-        networks = DefaultNetwork(context) { network, capabilities ->
+        wifiEnabled = WifiModeStore.default.load().enabled
+        networks = DefaultNetwork(
+            context,
+            includeLocation = wifiEnabled,
+            onCapabilities = { capabilities ->
+                wifiCapabilities = capabilities
+                wifiModes?.network(
+                    capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
+                    if (wifiEnabled) WifiIdentity.name(context, capabilities) else null,
+                )
+                wifiChanges.trySend(Unit)
+            },
+        ) { network, capabilities ->
             // Every network change also re-reads the zone: one that moves
             // the device to another is, more often than not, a trip.
             pushTimeZone()
@@ -139,6 +209,12 @@ class MeowInstance(val profile: ClashProfile) {
             }
             outbound = network
         }.also { it.start() }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, locationReceiver,
+            android.content.IntentFilter(android.location.LocationManager.MODE_CHANGED_ACTION),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        locationReceiverRegistered = true
         this@MeowInstance.meter = meter
         // Before the service reports Connected, which is when the UI starts
         // calling the API. Should the write fail, the VPN still runs; only the
@@ -175,6 +251,15 @@ class MeowInstance(val profile: ClashProfile) {
     }
 
     fun stop() {
+        wifiModes?.stop()
+        wifiScope.cancel()
+        wifiChanges.close()
+        if (locationReceiverRegistered) {
+            context?.unregisterReceiver(locationReceiver)
+            locationReceiverRegistered = false
+        }
+        context = null
+        wifiCapabilities = null
         networks?.stop()
         networks = null
         meter = null
