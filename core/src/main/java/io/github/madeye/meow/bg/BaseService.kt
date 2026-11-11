@@ -128,7 +128,7 @@ object BaseService {
                 val stats = instance.requestTrafficUpdate()
                 broadcast { item ->
                     if (bandwidthListeners.contains(item.asBinder())) {
-                        item.trafficUpdated(0, stats)
+                        item.trafficUpdated(instance.profile.id, stats)
                     }
                 }
             }

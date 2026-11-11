@@ -63,6 +63,7 @@ fun ProxyGroupsScreen(
     onTestGroup: (String) -> Unit,
     onOpenNode: (node: String, testUrl: String?) -> Unit,
     modifier: Modifier = Modifier,
+    onRetry: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier
@@ -76,12 +77,30 @@ fun ProxyGroupsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (state.groups.isEmpty()) {
+        if (state.loading || state.loadFailed || state.selectionFailed || state.waitingForProfile) {
+            item {
+                GlassCard {
+                    Column(Modifier.testTag("proxy_groups_feedback")) {
+                        if (state.waitingForProfile) Text(stringResource(R.string.proxy_groups_waiting_profile))
+                        if (state.loading) Text(stringResource(R.string.proxy_groups_loading))
+                        if (state.loadFailed) Text(stringResource(
+                            if (state.groups.isEmpty()) R.string.proxy_groups_load_failed else R.string.proxy_groups_stale,
+                        ))
+                        if (state.selectionFailed) Text(stringResource(R.string.proxy_groups_selection_failed))
+                        if (state.loadFailed && !state.loading) TextButton(onClick = onRetry) {
+                            Text(stringResource(R.string.proxy_groups_retry))
+                        }
+                    }
+                }
+            }
+        }
+        if (state.groups.isEmpty() && !state.loading && !state.loadFailed && !state.waitingForProfile) {
             item { Placeholder(state) }
         } else {
             items(state.groups, key = { it.name }) { group ->
                 ProxyGroupCard(
                     group = group,
+                    selecting = group.name in state.pendingGroups,
                     expanded = state.expandedGroup == group.name,
                     onToggleExpanded = { onToggleExpanded(group.name) },
                     onSelectNode = { node -> onSelectNode(group.name, node) },
@@ -153,6 +172,7 @@ private fun Placeholder(state: ProxyGroupsUiState) {
 @Composable
 private fun ProxyGroupCard(
     group: ProxyGroupUi,
+    selecting: Boolean,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onSelectNode: (String) -> Unit,
@@ -181,6 +201,7 @@ private fun ProxyGroupCard(
                     color = colors.mutedText,
                 )
             }
+            if (selecting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             val testProgress = group.testProgress
             if (testProgress != null) {
                 // Fills as members report in; eased so a burst of results
@@ -220,6 +241,7 @@ private fun ProxyGroupCard(
                 group.nodes.forEach { node ->
                     ProxyNodeRow(
                         node = node,
+                        enabled = !selecting,
                         onClick = { onSelectNode(node.name) },
                         onLongClick = { onOpenNode(node.name) },
                     )
@@ -230,13 +252,14 @@ private fun ProxyGroupCard(
 }
 
 @Composable
-private fun ProxyNodeRow(node: ProxyNodeUi, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ProxyNodeRow(node: ProxyNodeUi, enabled: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val colors = MaterialTheme.meow
     val haptics = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
+                enabled = enabled,
                 onClick = onClick,
                 onLongClickLabel = stringResource(R.string.proxy_node_details),
                 onLongClick = {

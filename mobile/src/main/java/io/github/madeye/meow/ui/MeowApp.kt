@@ -675,6 +675,7 @@ private fun ProxyGroupsRoute(
             contentPadding = padding,
             onToggleExpanded = viewModel::onToggleExpanded,
             onSelectNode = viewModel::onSelectNode,
+            onRetry = viewModel::onResume,
             onTestGroup = viewModel::onTestGroup,
             onOpenNode = onOpenNode,
         )

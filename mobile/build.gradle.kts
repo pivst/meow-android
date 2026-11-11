@@ -75,6 +75,8 @@ android {
 }
 
 dependencies {
+    testImplementation(libs.okhttp.mockwebserver)
+
     coreLibraryDesugaring(libs.desugar)
 
     implementation(platform(libs.compose.bom))

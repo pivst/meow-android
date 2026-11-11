@@ -46,6 +46,11 @@ class VpnStateRepository(
     private val _traffic = MutableStateFlow(TrafficStats())
     val traffic: StateFlow<TrafficStats> = _traffic.asStateFlow()
 
+    // Identity from the running service's existing traffic callback, not Room's
+    // selected row (which may be waiting for validation/reload).
+    private val _runningProfileId = MutableStateFlow<Long?>(null)
+    val runningProfileId: StateFlow<Long?> = _runningProfileId.asStateFlow()
+
     private val _profileName = MutableStateFlow("")
     val profileName: StateFlow<String> = _profileName.asStateFlow()
 
@@ -62,7 +67,9 @@ class VpnStateRepository(
      * the app is backgrounded, in which case the last state we saw is stale.
      */
     fun refresh() {
-        _state.value = connection.serviceState
+        val state = connection.serviceState
+        if (state != BaseService.State.Connected) _runningProfileId.value = null
+        _state.value = state
     }
 
     fun requestStop(context: Context) {
@@ -70,6 +77,7 @@ class VpnStateRepository(
     }
 
     override fun stateChanged(state: BaseService.State, profileName: String, msg: String?) {
+        if (state != BaseService.State.Connected) _runningProfileId.value = null
         _state.value = state
         if (profileName.isNotEmpty()) _profileName.value = profileName
         if (state == BaseService.State.Connected) recorder.reset()
@@ -77,6 +85,7 @@ class VpnStateRepository(
     }
 
     override fun trafficUpdated(profileId: Long, stats: TrafficStats) {
+        if (_state.value == BaseService.State.Connected) _runningProfileId.value = profileId.takeIf { it > 0 }
         _traffic.value = stats
         scope.launch(recordDispatcher) { recorder.record(stats) }
     }

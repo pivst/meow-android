@@ -354,4 +354,10 @@
     <plurals name="perapp_selected">
         <item quantity="other">%1$d ခု ရွေးထားသည်</item>
     </plurals>
+    <string name="proxy_groups_loading">Loading proxy groups…</string>
+    <string name="proxy_groups_load_failed">Could not load proxy groups. Retry when the controller is available.</string>
+    <string name="proxy_groups_stale">Refresh failed. Showing the last successful list; it may be out of date.</string>
+    <string name="proxy_groups_selection_failed">Could not confirm the selection. Refresh to check the current node.</string>
+    <string name="proxy_groups_retry">Retry</string>
+    <string name="proxy_groups_waiting_profile">Waiting for the selected profile to become active. Node selection is paused.</string>
 </resources>

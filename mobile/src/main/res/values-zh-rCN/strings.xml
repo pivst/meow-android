@@ -349,4 +349,10 @@
     <plurals name="perapp_selected">
         <item quantity="other">已选 %1$d 个</item>
     </plurals>
+    <string name="proxy_groups_loading">正在加载代理组…</string>
+    <string name="proxy_groups_load_failed">无法加载代理组，请在控制器恢复后重试。</string>
+    <string name="proxy_groups_stale">刷新失败，正在显示上次成功加载的列表，数据可能已过期。</string>
+    <string name="proxy_groups_selection_failed">无法确认节点选择，请刷新检查当前节点。</string>
+    <string name="proxy_groups_retry">重试</string>
+    <string name="proxy_groups_waiting_profile">等待所选配置生效，暂时无法选择节点。</string>
 </resources>
