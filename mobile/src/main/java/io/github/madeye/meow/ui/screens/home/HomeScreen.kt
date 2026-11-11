@@ -153,7 +153,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun StatusCard(state: HomeUiState, onToggle: (Boolean) -> Unit) {
+internal fun StatusCard(state: HomeUiState, onToggle: (Boolean) -> Unit) {
     val colors = MaterialTheme.meow
     val label = stringResource(
         when (state.state) {
@@ -197,7 +197,14 @@ private fun StatusCard(state: HomeUiState, onToggle: (Boolean) -> Unit) {
                     color = colors.mutedText,
                 )
             }
-            if (state.isBusy) {
+            if (state.state == BaseService.State.Connecting) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    TextButton(onClick = { onToggle(false) }, modifier = Modifier.testTag("vpn_cancel")) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                }
+            } else if (state.state == BaseService.State.Stopping) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             } else {
                 val toggleLabel = stringResource(R.string.home_vpn_toggle)

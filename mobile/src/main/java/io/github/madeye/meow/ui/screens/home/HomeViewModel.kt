@@ -40,7 +40,7 @@ data class HomeUiState(
 ) {
     val isConnected: Boolean get() = state == BaseService.State.Connected
 
-    /** The switch is inert mid-transition, matching the old Flutter behaviour. */
+    /** Route-mode changes wait for transitions; an in-progress connect can be cancelled. */
     val isBusy: Boolean
         get() = state == BaseService.State.Connecting || state == BaseService.State.Stopping
 }
