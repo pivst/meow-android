@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import io.github.madeye.meow.traffic.TrafficNetwork
+import io.github.madeye.meow.net.PhysicalNetworkSelection
 import timber.log.Timber
 
 /**
@@ -31,32 +32,49 @@ internal class DefaultNetwork(
 
     private var callback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var generation = 0
+    private var selection = PhysicalNetworkSelection<Network>()
+    private val bestMatching = Build.VERSION.SDK_INT >= 28
     private var selected: Network? = null
     private var current: Network? = null
 
+    private fun physicalDefault(): Network? = connectivity.activeNetwork?.takeIf {
+        connectivity.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == true
+    }
+
     @Synchronized private fun available(epoch: Int, network: Network) {
         if (epoch != generation) return
-        selected = network
+        val change = if (bestMatching) selection.bestAvailable(network)
+            else selection.available(network, physicalDefault())
+        if (change == null) return
+        selected = change.network
         onCapabilities(null)
-        if (Build.VERSION.SDK_INT < 26) changed(epoch, network, connectivity.getNetworkCapabilities(network))
+        if (Build.VERSION.SDK_INT < 26 || selected != network) {
+            selected?.let { changed(epoch, it, connectivity.getNetworkCapabilities(it)) }
+        }
     }
     @Synchronized private fun changed(epoch: Int, network: Network, capabilities: NetworkCapabilities?) {
-        if (epoch != generation || selected != network) return
-        onCapabilities(capabilities)
-        if (network == current) return
-        current = network
-        onNetwork(network, capabilities)
+        if (epoch != generation) return
+        val change = selection.capabilitiesChanged(network, if (bestMatching) null else physicalDefault())
+        if (change != null) selected = change.network
+        if (selected != network && change == null) return
+        val selectedNetwork = selected
+        val selectedCapabilities = if (selectedNetwork == network) capabilities
+            else selectedNetwork?.let(connectivity::getNetworkCapabilities)
+        onCapabilities(selectedCapabilities)
+        if (selectedNetwork == current) return
+        current = selectedNetwork
+        onNetwork(selectedNetwork, selectedCapabilities)
     }
     @Synchronized private fun lost(epoch: Int, network: Network) {
         if (epoch != generation) return
-        if (selected == network) {
-            selected = null
-            onCapabilities(null)
+        val change = selection.lost(network, if (bestMatching) null else physicalDefault()) ?: return
+        selected = change.network
+        val capabilities = change.network?.let(connectivity::getNetworkCapabilities)
+        onCapabilities(capabilities)
+        if (current != change.network) {
+            current = change.network
+            onNetwork(change.network, capabilities)
         }
-        if (network != current) return
-        current = null
-        onCapabilities(null)
-        onNetwork(null, null)
     }
     private fun newCallback(epoch: Int): ConnectivityManager.NetworkCallback =
         if (Build.VERSION.SDK_INT >= 31) locationCallback(epoch) else
@@ -84,6 +102,7 @@ internal class DefaultNetwork(
 
     // INTERNET and NOT_RESTRICTED on top of the builder's NOT_VPN.
     private val request = NetworkRequest.Builder()
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
         .build()
@@ -96,8 +115,8 @@ internal class DefaultNetwork(
                 Build.VERSION.SDK_INT >= 31 -> registerBestMatching(callback, handler)
                 // A request, not a listen: it follows the network that wins.
                 Build.VERSION.SDK_INT >= 28 -> connectivity.requestNetwork(request, callback, handler)
-                Build.VERSION.SDK_INT >= 26 -> connectivity.registerDefaultNetworkCallback(callback, handler)
-                else -> connectivity.registerDefaultNetworkCallback(callback)
+                Build.VERSION.SDK_INT >= 26 -> connectivity.registerNetworkCallback(request, callback, handler)
+                else -> connectivity.registerNetworkCallback(request, callback)
             }
         } catch (e: RuntimeException) {
             // Too many requests for this uid, or an OEM refusal: the session
@@ -116,6 +135,7 @@ internal class DefaultNetwork(
         this.callback = null
         current = null
         selected = null
+        selection = PhysicalNetworkSelection()
         try {
             connectivity.unregisterNetworkCallback(callback)
         } catch (e: IllegalArgumentException) {

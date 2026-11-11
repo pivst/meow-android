@@ -80,3 +80,9 @@ Scope: Rule/Global/Direct switching, not VPN start/stop or profile switching. Th
   and pre-31 platform behavior: NOT_RUN.
 - New English and Simplified Chinese strings are authored; other existing
   catalogs carry English text pending native-language translation.
+
+### Physical-network follow-up
+
+API 24–27 observe only non-VPN network candidates instead of the VPN default. The selected physical network remains stable while the VPN is the active default; losing it selects a remaining physical candidate. Best-match callbacks replace old candidates, and stopped callback generations cannot republish a prior selection. Capability changes update Wi-Fi identity without resetting an unchanged physical connection.
+
+Final Kotlin qualification after this follow-up: core 228 and mobile 195 JVM tests passed, zero failures/skips; mobile lint and UI instrumentation compilation passed. The six physical selection tests cover best-match replacement, late loss/capability callbacks, a VPN default and legacy fallback. The earlier ARM64 native build and two Compose runs above cover unchanged native and UI source, not a new physical handover or full APK run. API 24–27 device handover remains NOT_RUN.
